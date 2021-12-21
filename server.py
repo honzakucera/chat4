@@ -6,7 +6,9 @@ from argparse import ArgumentParser
 from socket import AF_INET, SOCK_STREAM, socket, SOL_SOCKET, SO_REUSEADDR
 from threading import Thread
 
-from chatlib import handshake, LCG, xor
+from Crypto.Random.random import getrandbits
+
+from chatlib import handshake, encrypt, decrypt
 
 
 list_of_clients = []
@@ -18,12 +20,13 @@ def client_thread(conn, addr, key):
     print(f'{addr[0]} connected')
     conn_key = handshake(conn, key)
     list_of_clients.append((conn, conn_key))
+    print(f'{addr[0]} handshake ok')
 
-    conn.send(xor('Welcome to this chatroom!', conn_key).encode())
+    conn.send(encrypt('Welcome to this chatroom!', conn_key))
 
     while True:
         try:
-            message = xor(conn.recv(2048).decode(), conn_key)
+            message = decrypt(conn.recv(2048), conn_key)
             if message:
                 broadcast(f'<{addr[0]}> {message}', conn)
             else:
@@ -42,7 +45,7 @@ def broadcast(message, from_conn):
     for client, client_key in list_of_clients:
         if client != from_conn:
             try:
-                client.send(xor(message, client_key).encode())
+                client.send(encrypt(message, client_key))
             except Exception as exc:  # noqa: E722 pylint: disable=broad-except
                 logging.error('cannot broadcast message: %s', exc)
                 client.close()
@@ -64,7 +67,7 @@ def main():
     parser.add_argument('--port', type=int, default=7000)
     args = parser.parse_args()
 
-    key = LCG().random()
+    key = getrandbits(32)
     server = socket(AF_INET, SOCK_STREAM)
     server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     server.bind((args.bindaddr, args.port))

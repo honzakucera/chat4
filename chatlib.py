@@ -1,25 +1,32 @@
 """chatserver lib"""
 
 from itertools import cycle
+from Crypto.Cipher import AES
+from Crypto.Hash import SHA256
 
 
-def xor(message, key):
+def encrypt(message, key):
     """encrypt message"""
+    cipher = AES.new(SHA256.new(key.encode()).digest(), AES.MODE_EAX)
+    nonce = cipher.nonce
+    ciphertext, tag = cipher.encrypt_and_digest(message.encode())
+    encrypted = nonce+ciphertext+tag
+    return encrypted
 
-    return ''.join(chr(ord(c) ^ ord(k)) for c, k in zip(message, cycle(key)))
 
-
-class LCG:  # pylint: disable=too-few-public-methods
-    """https://stackoverflow.com/a/9024521/8326867"""
-
-    def __init__(self, seed=1):
-        self.state = seed
-
-    def random(self):
-        """generate next random"""
-
-        self.state = (1103515245 * self.state + 12345) % (2**31)
-        return self.state
+def decrypt(message, key):
+    """dectypt message"""
+    print(message)
+    nonce = message[0:16]
+    cipher = AES.new(SHA256.new(key.encode()).digest(), AES.MODE_EAX, nonce=nonce)
+    ciphertext = message[16:-16]
+    tag = message[-16:]
+    decrypted = cipher.decrypt(ciphertext)
+    try:
+        cipher.verify(tag)
+    except ValueError:
+        return "<!> Key incorrect or message corrupted"
+    return decrypted.decode()
 
 
 def handshake(conn, priv_key):
