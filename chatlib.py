@@ -16,7 +16,6 @@ def encrypt(message, key):
 
 def decrypt(message, key):
     """dectypt message"""
-    print(message)
     nonce = message[0:16]
     cipher = AES.new(SHA256.new(key.encode()).digest(), AES.MODE_EAX, nonce=nonce)
     ciphertext = message[16:-16]
